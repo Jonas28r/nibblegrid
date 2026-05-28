@@ -1,72 +1,155 @@
+// --- ESTADO GLOBAL Y PERSISTENCIA (APP) ---
+let userData = JSON.parse(localStorage.getItem('nibbleGridApp')) || {
+    coins: 0,
+    maxLevel: 1,
+    maxScore: 0,
+    unlockedSkins: ['classic'],
+    currentSkin: 'classic'
+};
+
+function saveProgress() {
+    localStorage.setItem('nibbleGridApp', JSON.stringify(userData));
+}
+
+// Catálogo de Skins
+const skinsConfig = {
+    classic: { id: 'classic', name: 'Mamba Verde', price: 0, color: '#00cc52', light: '#00ff66' },
+    neon:    { id: 'neon', name: 'Cyber Pitón', price: 50, color: '#0088cc', light: '#00d9ff' },
+    gold:    { id: 'gold', name: 'Cobra Real', price: 150, color: '#ccac00', light: '#ffd700' },
+    lava:    { id: 'lava', name: 'Víbora Magma', price: 300, color: '#cc2900', light: '#ff5500' }
+};
+
+// --- NAVEGACIÓN DE PANTALLAS ---
+function navTo(screenId) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(screenId).classList.add('active');
+}
+
+// --- ACTUALIZACIÓN DE UI (PERFIL Y TIENDA) ---
+function updateProfileUI() {
+    document.getElementById('prof-level').innerText = userData.maxLevel;
+    document.getElementById('prof-score').innerText = userData.maxScore;
+    document.getElementById('prof-coins').innerText = '$' + userData.coins;
+
+    const list = document.getElementById('unlocked-skins-list');
+    list.innerHTML = '';
+    
+    // SOLAMENTE MUESTRA LAS SKINS QUE YA TIENE
+    userData.unlockedSkins.forEach(skinId => {
+        const skin = skinsConfig[skinId];
+        const isEquipped = userData.currentSkin === skinId;
+        
+        list.innerHTML += `
+            <div class="skin-card ${isEquipped ? 'equipped' : ''}">
+                <div class="skin-preview" style="background: linear-gradient(135deg, ${skin.light}, ${skin.color})"></div>
+                <strong>${skin.name}</strong>
+                ${isEquipped 
+                    ? `<span style="color:#00ff66; font-size:0.8rem;">Equipada</span>` 
+                    : `<button class="btn-icon" onclick="equipSkin('${skinId}')">Equipar</button>`
+                }
+            </div>
+        `;
+    });
+}
+
+function updateShopUI() {
+    document.getElementById('shop-coins').innerText = '$' + userData.coins;
+    const list = document.getElementById('all-skins-list');
+    list.innerHTML = '';
+    
+    Object.values(skinsConfig).forEach(skin => {
+        const isOwned = userData.unlockedSkins.includes(skin.id);
+        
+        list.innerHTML += `
+            <div class="skin-card">
+                <div class="skin-preview" style="background: linear-gradient(135deg, ${skin.light}, ${skin.color})"></div>
+                <strong>${skin.name}</strong>
+                ${isOwned 
+                    ? `<span style="color:#aaa; font-size:0.9rem;">Ya la tienes</span>` 
+                    : `<button class="btn-icon" style="background:#00ff66; color:#000;" onclick="buySkin('${skin.id}', ${skin.price})">Comprar $${skin.price}</button>`
+                }
+            </div>
+        `;
+    });
+}
+
+function equipSkin(id) {
+    userData.currentSkin = id;
+    saveProgress();
+    updateProfileUI();
+}
+
+function buySkin(id, price) {
+    if (userData.coins >= price) {
+        userData.coins -= price;
+        userData.unlockedSkins.push(id);
+        userData.currentSkin = id;
+        saveProgress();
+        updateShopUI();
+    } else {
+        alert("¡Te faltan monedas!");
+    }
+}
+
+// --- MOTOR DEL JUEGO (CANVAS 2.5D) ---
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
+// Resolución virtual fija. El CSS se encarga de adaptarlo a cualquier pantalla.
+const virtualSize = 400; 
+canvas.width = virtualSize;
+canvas.height = virtualSize;
 const gridSize = 20; 
-const tileCount = canvas.width / gridSize;
+const tileCount = virtualSize / gridSize;
 
 let snake = [];
 let dir = { x: 0, y: 0 };
 let nextDir = { x: 0, y: 0 };
 let items = []; 
-let score = 0;
-let coins = 0;
-let level = 1;
+let currentScore = 0;
+let currentLevel = 1;
 let gameInterval = null;
 let isImmune = false;
-let gameSpeed = 150; // Un poco más lento para poder apreciar los gráficos
+let gameSpeed = 150;
+let animationFrame = 0;
 
-let currentSkin = 'classic';
-let unlockedSkins = ['classic'];
-const skinsConfig = {
-    classic: { body: '#00cc52', head: '#00ff66', outline: '#004d1f' },
-    neon: { body: '#0088cc', head: '#00d9ff', outline: '#00334d' },
-    gold: { body: '#ccac00', head: '#ffd700', outline: '#4d4000' }
-};
-
-// Mapas (0 = Vacío, 1 = Obstáculo)
+// Mapas tipo Selva
 const maps = {
-    1: [], 
-    2: [   
-        {x: 5, y: 5}, {x: 5, y: 6}, {x: 6, y: 5},
-        {x: 14, y: 5}, {x: 14, y: 6}, {x: 13, y: 5},
-        {x: 5, y: 14}, {x: 5, y: 13}, {x: 6, y: 14},
-        {x: 14, y: 14}, {x: 14, y: 13}, {x: 13, y: 14}
-    ],
-    3: [   
-        {x: 4, y: 10}, {x: 5, y: 10}, {x: 6, y: 10}, {x: 7, y: 10},
-        {x: 12, y: 10}, {x: 13, y: 10}, {x: 14, y: 10}, {x: 15, y: 10},
-        {x: 10, y: 4}, {x: 10, y: 5}, {x: 10, y: 15}, {x: 10, y: 16}
+    1: [], // Selva abierta
+    2: [   // Ruinas de la selva
+        {x: 4, y: 4}, {x: 4, y: 5}, {x: 5, y: 4},
+        {x: 15, y: 4}, {x: 15, y: 5}, {x: 14, y: 4},
+        {x: 4, y: 15}, {x: 4, y: 14}, {x: 5, y: 15},
+        {x: 15, y: 15}, {x: 15, y: 14}, {x: 14, y: 15}
     ]
 };
 
-// Catálogo de ítems usando Emojis (¡Estilo Candy Crush!)
 const itemTypes = [
     { name: 'apple', emoji: '🍎', points: 10, weight: 0.3 },
     { name: 'banana', emoji: '🍌', points: 15, weight: 0.2 },
-    { name: 'cherry', emoji: '🍒', points: 20, weight: 0.2 },
+    { name: 'grape', emoji: '🍇', points: 20, weight: 0.2 },
     { name: 'candy', emoji: '🍬', points: 30, weight: 0.15 },
-    { name: 'lollipop', emoji: '🍭', points: 40, weight: 0.1 },
-    { name: 'star', emoji: '⭐', points: 10, weight: 0.05, power: 'immunity' }
+    { name: 'star', emoji: '⭐', points: 5, weight: 0.05, power: 'immunity' }
 ];
 
 function startGame() {
-    document.getElementById("overlay").classList.add("hidden");
-    resetGameState();
+    document.getElementById("game-over-overlay").classList.add("hidden");
+    snake = [{ x: 10, y: 15 }, { x: 10, y: 16 }, { x: 10, y: 17 }];
+    dir = { x: 0, y: -1 }; nextDir = { x: 0, y: -1 };
+    currentScore = 0; currentLevel = 1; isImmune = false;
+    items = [];
+    document.getElementById("game-score").innerText = currentScore;
+    
     spawnItem();
     if(gameInterval) clearInterval(gameInterval);
     gameInterval = setInterval(gameLoop, gameSpeed);
+    
+    requestAnimationFrame(renderVisuals);
 }
 
-function resetGameState() {
-    snake = [{ x: 10, y: 15 }, { x: 10, y: 16 }, { x: 10, y: 17 }];
-    dir = { x: 0, y: -1 };
-    nextDir = { x: 0, y: -1 };
-    score = 0;
-    level = 1;
-    isImmune = false;
-    gameSpeed = 150;
-    items = [];
-    updateHUD();
+function exitGame() {
+    clearInterval(gameInterval);
+    navTo('screen-home');
 }
 
 function gameLoop() {
@@ -74,10 +157,8 @@ function gameLoop() {
     const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
 
     if (checkCollision(head)) {
-        if (!isImmune) {
-            endGame();
-            return;
-        } else {
+        if (!isImmune) { handleGameOver(); return; } 
+        else {
             if (head.x < 0) head.x = tileCount - 1;
             if (head.x >= tileCount) head.x = 0;
             if (head.y < 0) head.y = tileCount - 1;
@@ -86,44 +167,49 @@ function gameLoop() {
     }
 
     snake.unshift(head);
-
     let ate = false;
     for (let i = 0; i < items.length; i++) {
         if (head.x === items[i].x && head.y === items[i].y) {
-            handleItemConsumption(items[i]);
+            currentScore += items[i].type.points;
+            userData.coins += Math.floor(items[i].type.points / 2);
+            document.getElementById("game-score").innerText = currentScore;
+            
+            if (items[i].type.power === 'immunity') activateImmunity();
+            
             items.splice(i, 1);
             ate = true;
             spawnItem();
             break;
         }
     }
-
     if (!ate) snake.pop();
-    draw();
+    
+    if (currentScore > 150 && currentLevel === 1) { currentLevel = 2; spawnItem(); }
 }
 
-function checkCollision(position) {
-    if (position.x < 0 || position.x >= tileCount || position.y < 0 || position.y >= tileCount) return true;
-    for (let i = 1; i < snake.length; i++) {
-        if (position.x === snake[i].x && position.y === snake[i].y) return true;
-    }
-    const currentObstacles = maps[level] || [];
-    for (let obs of currentObstacles) {
-        if (position.x === obs.x && position.y === obs.y) return true;
-    }
+function checkCollision(pos) {
+    if (pos.x < 0 || pos.x >= tileCount || pos.y < 0 || pos.y >= tileCount) return true;
+    for (let i = 1; i < snake.length; i++) { if (pos.x === snake[i].x && pos.y === snake[i].y) return true; }
+    for (let obs of (maps[currentLevel] || [])) { if (pos.x === obs.x && pos.y === obs.y) return true; }
     return false;
 }
 
-function handleItemConsumption(item) {
-    score += item.type.points;
-    coins += Math.floor(item.type.points / 2);
-
-    if (item.type.power === 'immunity') activateImmunity();
-
-    if (score >= 200 && level === 1) triggerNextLevel(2, 130);
-    else if (score >= 500 && level === 2) triggerNextLevel(3, 110);
-
-    updateHUD();
+function spawnItem() {
+    let x, y, valid = false;
+    while (!valid) {
+        x = Math.floor(Math.random() * tileCount);
+        y = Math.floor(Math.random() * tileCount);
+        valid = true;
+        for (let cell of snake) if (cell.x === x && cell.y === y) valid = false;
+        for (let obs of (maps[currentLevel] || [])) if (obs.x === x && obs.y === y) valid = false;
+    }
+    const rand = Math.random();
+    let sel = itemTypes[0], w = 0;
+    for (let type of itemTypes) {
+        w += type.weight;
+        if (rand <= w) { sel = type; break; }
+    }
+    items.push({ x, y, type: sel });
 }
 
 function activateImmunity() {
@@ -135,215 +221,118 @@ function activateImmunity() {
     }, 6000);
 }
 
-function triggerNextLevel(nextLvl, speed) {
-    level = nextLvl;
-    gameSpeed = speed;
+function handleGameOver() {
     clearInterval(gameInterval);
-    gameInterval = setInterval(gameLoop, gameSpeed);
-    items = [];
-}
-
-function spawnItem() {
-    let x, y, valid = false;
-    while (!valid) {
-        x = Math.floor(Math.random() * tileCount);
-        y = Math.floor(Math.random() * tileCount);
-        valid = true;
-
-        for (let cell of snake) if (cell.x === x && cell.y === y) valid = false;
-        
-        const currentObstacles = maps[level] || [];
-        for (let obs of currentObstacles) if (obs.x === x && obs.y === y) valid = false;
-    }
-
-    const rand = Math.random();
-    let selectedType = itemTypes[0];
-    let cumulativeWeight = 0;
-    for (let type of itemTypes) {
-        cumulativeWeight += type.weight;
-        if (rand <= cumulativeWeight) {
-            selectedType = type;
-            break;
-        }
-    }
-    items.push({ x, y, type: selectedType });
-}
-
-// RENDERIZADO VISUAL MEJORADO
-function draw() {
-    // 1. Fondo del nivel (Tablero de ajedrez sutil)
-    ctx.fillStyle = "#1a1e24";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (currentScore > userData.maxScore) userData.maxScore = currentScore;
+    if (currentLevel > userData.maxLevel) userData.maxLevel = currentLevel;
+    saveProgress();
     
-    ctx.fillStyle = "#20252b";
-    for (let row = 0; row < tileCount; row++) {
-        for (let col = 0; col < tileCount; col++) {
-            if ((row + col) % 2 === 0) {
-                ctx.fillRect(col * gridSize, row * gridSize, gridSize, gridSize);
-            }
+    document.getElementById("end-score").innerText = currentScore;
+    document.getElementById("game-over-overlay").classList.remove("hidden");
+}
+
+// --- RENDERIZADO 2.5D ---
+function renderVisuals() {
+    animationFrame++;
+    
+    // Suelo de Selva
+    ctx.fillStyle = "#1b2a16";
+    ctx.fillRect(0, 0, virtualSize, virtualSize);
+    ctx.fillStyle = "#22351c";
+    for (let r = 0; r < tileCount; r++) {
+        for (let c = 0; c < tileCount; c++) {
+            if ((r + c) % 2 === 0) ctx.fillRect(c * gridSize, r * gridSize, gridSize, gridSize);
         }
     }
 
-    // 2. Obstáculos (Paredes estilo bloque 3D)
-    const currentObstacles = maps[level] || [];
-    for (let obs of currentObstacles) {
-        const x = obs.x * gridSize;
-        const y = obs.y * gridSize;
+    // Ítems con sombra y rebote visual
+    items.forEach(item => {
+        const cx = (item.x * gridSize) + gridSize/2;
+        const cy = (item.y * gridSize) + gridSize/2;
+        const bounce = Math.sin(animationFrame * 0.1 + item.x) * 3;
         
-        ctx.fillStyle = "#4a4e59"; // Color base
-        ctx.fillRect(x, y, gridSize, gridSize);
+        ctx.fillStyle = "rgba(0,0,0,0.4)";
+        ctx.beginPath(); ctx.ellipse(cx, cy + 8, 6, 3, 0, 0, Math.PI*2); ctx.fill();
         
-        // Bordes para dar volumen
-        ctx.fillStyle = "#656a78"; // Brillo arriba
-        ctx.fillRect(x, y, gridSize, 3);
-        ctx.fillStyle = "#2d3038"; // Sombra abajo
-        ctx.fillRect(x, y + gridSize - 3, gridSize, 3);
-    }
+        ctx.font = "18px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText(item.type.emoji, cx, cy + bounce);
+    });
 
-    // 3. Dibujar Ítems (Emojis)
-    ctx.font = "18px Arial";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    for (let item of items) {
-        const cx = (item.x * gridSize) + gridSize / 2;
-        const cy = (item.y * gridSize) + gridSize / 2 + 2; // +2 para centrar verticalmente mejor
-        ctx.fillText(item.type.emoji, cx, cy);
-    }
-
-    // 4. Dibujar la Serpiente (Curvas y Ojos)
-    const colors = skinsConfig[currentSkin];
-    
+    // Serpiente 2.5D (Esferas)
+    const activeSkin = skinsConfig[userData.currentSkin];
     snake.forEach((cell, index) => {
-        const cx = (cell.x * gridSize) + gridSize / 2;
-        const cy = (cell.y * gridSize) + gridSize / 2;
+        const cx = (cell.x * gridSize) + gridSize/2;
+        const cy = (cell.y * gridSize) + gridSize/2;
         
-        ctx.fillStyle = index === 0 ? colors.head : colors.body;
+        ctx.fillStyle = "rgba(0,0,0,0.3)";
+        ctx.beginPath(); ctx.ellipse(cx, cy + 4, gridSize/2, gridSize/4, 0, 0, Math.PI*2); ctx.fill();
+
+        let grad = ctx.createRadialGradient(cx - 3, cy - 3, 2, cx, cy, gridSize/2);
+        grad.addColorStop(0, isImmune ? '#ffffff' : activeSkin.light);
+        grad.addColorStop(1, activeSkin.color);
         
-        if (isImmune) ctx.fillStyle = `hsl(${Date.now() % 360}, 100%, 60%)`;
-
-        // Dibujar cuerpo como círculos conectados
-        ctx.beginPath();
-        ctx.arc(cx, cy, gridSize/2 - 1, 0, 2 * Math.PI);
-        ctx.fill();
-        
-        // Si no es el último, dibujar un puente hacia el siguiente segmento para que se vea continua
-        if (index < snake.length - 1) {
-            const nextCell = snake[index + 1];
-            const nx = (nextCell.x * gridSize) + gridSize / 2;
-            const ny = (nextCell.y * gridSize) + gridSize / 2;
-            
-            ctx.beginPath();
-            ctx.moveTo(cx, cy);
-            ctx.lineTo(nx, ny);
-            ctx.lineWidth = gridSize - 2;
-            ctx.strokeStyle = ctx.fillStyle;
-            ctx.stroke();
-        }
-
-        // Dibujar Ojos en la cabeza
-        if (index === 0) {
-            ctx.fillStyle = "white";
-            let eye1 = { x: 0, y: 0 }, eye2 = { x: 0, y: 0 };
-            const offset = 4;
-            
-            // Posicionar ojos según dirección
-            if (dir.x === 1) { eye1 = {x: cx+offset, y: cy-offset}; eye2 = {x: cx+offset, y: cy+offset}; }
-            else if (dir.x === -1) { eye1 = {x: cx-offset, y: cy-offset}; eye2 = {x: cx-offset, y: cy+offset}; }
-            else if (dir.y === 1) { eye1 = {x: cx-offset, y: cy+offset}; eye2 = {x: cx+offset, y: cy+offset}; }
-            else if (dir.y === -1) { eye1 = {x: cx-offset, y: cy-offset}; eye2 = {x: cx+offset, y: cy-offset}; }
-            else { eye1 = {x: cx-offset, y: cy-offset}; eye2 = {x: cx+offset, y: cy-offset}; } // Default arriba
-
-            // Blancos del ojo
-            ctx.beginPath(); ctx.arc(eye1.x, eye1.y, 3, 0, Math.PI*2); ctx.fill();
-            ctx.beginPath(); ctx.arc(eye2.x, eye2.y, 3, 0, Math.PI*2); ctx.fill();
-            
-            // Pupilas
-            ctx.fillStyle = "black";
-            ctx.beginPath(); ctx.arc(eye1.x, eye1.y, 1.5, 0, Math.PI*2); ctx.fill();
-            ctx.beginPath(); ctx.arc(eye2.x, eye2.y, 1.5, 0, Math.PI*2); ctx.fill();
-        }
+        ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.arc(cx, cy - (index===0 ? 2 : 0), gridSize/2 - 1, 0, Math.PI*2); ctx.fill();
     });
-}
 
-function updateHUD() {
-    document.getElementById("score-val").innerText = score;
-    document.getElementById("coins-val").innerText = coins;
-    document.getElementById("level-val").innerText = level;
-}
-
-function endGame() {
-    clearInterval(gameInterval);
-    document.getElementById("overlay").classList.remove("hidden");
-    document.getElementById("overlay-title").innerText = "FIN DEL JUEGO";
-    document.getElementById("overlay-desc").innerText = `¡Llegaste al nivel ${level} con ${score} puntos!`;
-    document.getElementById("start-btn").innerText = "Volver a Intentar";
-}
-
-function buySkin(skinId, price) {
-    if (unlockedSkins.includes(skinId)) {
-        currentSkin = skinId;
-    } else if (coins >= price) {
-        coins -= price;
-        unlockedSkins.push(skinId);
-        currentSkin = skinId;
-        updateHUD();
-    } else {
-        alert("¡No tienes suficientes monedas!");
-        return;
+    // Árboles 2.5D (Obstáculos)
+    for (let obs of (maps[currentLevel] || [])) {
+        const cx = obs.x * gridSize + gridSize/2;
+        const cy = obs.y * gridSize + gridSize/2;
+        
+        ctx.fillStyle = "rgba(0,0,0,0.6)";
+        ctx.beginPath(); ctx.ellipse(cx, cy + 6, gridSize/1.5, gridSize/3, 0, 0, Math.PI*2); ctx.fill();
+        
+        ctx.fillStyle = "#4a2e15";
+        ctx.fillRect(cx - 4, cy - 8, 8, 16);
+        
+        ctx.fillStyle = "#1e591e";
+        ctx.beginPath(); ctx.arc(cx, cy - 10, 12, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = "#2d882d";
+        ctx.beginPath(); ctx.arc(cx, cy - 16, 9, 0, Math.PI*2); ctx.fill();
     }
-    
-    Object.keys(skinsConfig).forEach(id => {
-        const itemEl = document.getElementById(`skin-${id}`);
-        const btn = itemEl.querySelector("button");
-        if (currentSkin === id) {
-            btn.innerText = "Equipado";
-            btn.className = "active";
-        } else if (unlockedSkins.includes(id)) {
-            btn.innerText = "Equipar";
-            btn.className = "";
-        } else {
-            btn.className = "";
-        }
-    });
-    draw();
+
+    if(gameInterval) requestAnimationFrame(renderVisuals);
 }
 
-// Controles Teclado PC
+// --- CONTROLES PC ---
 window.addEventListener("keydown", e => {
-    switch (e.key) {
-        case "ArrowUp":    case "w": case "W": if (dir.y !== 1)  nextDir = { x: 0, y: -1 }; break;
-        case "ArrowDown":  case "s": case "S": if (dir.y !== -1) nextDir = { x: 0, y: 1 };  break;
-        case "ArrowLeft":  case "a": case "A": if (dir.x !== 1)  nextDir = { x: -1, y: 0 }; break;
-        case "ArrowRight": case "d": case "D": if (dir.x !== -1) nextDir = { x: 1, y: 0 };  break;
+    if(document.getElementById('screen-game').classList.contains('active')){
+        switch (e.key) {
+            case "ArrowUp":    case "w": if (dir.y !== 1)  nextDir = { x: 0, y: -1 }; break;
+            case "ArrowDown":  case "s": if (dir.y !== -1) nextDir = { x: 0, y: 1 };  break;
+            case "ArrowLeft":  case "a": if (dir.x !== 1)  nextDir = { x: -1, y: 0 }; break;
+            case "ArrowRight": case "d": if (dir.x !== -1) nextDir = { x: 1, y: 0 };  break;
+        }
     }
 });
 
-// Controles Táctiles Celular (Swipe)
-let touchStartX = 0;
-let touchStartY = 0;
+// --- SOLUCIÓN DEFINITIVA A CONTROLES MÓVILES ---
+let startX=0, startY=0;
 
-canvas.addEventListener('touchstart', function(e) {
-    touchStartX = e.changedTouches[0].screenX;
-    touchStartY = e.changedTouches[0].screenY;
-}, false);
+// e.preventDefault() ES LA CLAVE MÁGICA AQUÍ PARA QUE LA PANTALLA NO HAGA SCROLL
+canvas.addEventListener('touchstart', e => {
+    e.preventDefault(); 
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+}, {passive: false});
 
-canvas.addEventListener('touchend', function(e) {
-    let touchEndX = e.changedTouches[0].screenX;
-    let touchEndY = e.changedTouches[0].screenY;
-    handleSwipe(touchStartX, touchStartY, touchEndX, touchEndY);
-}, false);
+canvas.addEventListener('touchmove', e => {
+    e.preventDefault(); 
+}, {passive: false});
 
-function handleSwipe(startX, startY, endX, endY) {
-    let dx = endX - startX;
-    let dy = endY - startY;
-    
-    if (Math.abs(dx) > Math.abs(dy)) {
-        // Movimiento horizontal
-        if (dx > 30 && dir.x !== -1) nextDir = { x: 1, y: 0 }; // Derecha
-        else if (dx < -30 && dir.x !== 1) nextDir = { x: -1, y: 0 }; // Izquierda
+canvas.addEventListener('touchend', e => {
+    e.preventDefault();
+    let endX = e.changedTouches[0].clientX;
+    let endY = e.changedTouches[0].clientY;
+    let diffX = endX - startX;
+    let diffY = endY - startY;
+
+    if (Math.abs(diffX) > Math.abs(diffY)) {
+        if (diffX > 20 && dir.x !== -1) nextDir = {x: 1, y: 0};
+        else if (diffX < -20 && dir.x !== 1) nextDir = {x: -1, y: 0};
     } else {
-        // Movimiento vertical
-        if (dy > 30 && dir.y !== -1) nextDir = { x: 0, y: 1 }; // Abajo
-        else if (dy < -30 && dir.y !== 1) nextDir = { x: 0, y: -1 }; // Arriba
+        if (diffY > 20 && dir.y !== -1) nextDir = {x: 0, y: 1};
+        else if (diffY < -20 && dir.y !== 1) nextDir = {x: 0, y: -1};
     }
-}
+}, {passive: false});
