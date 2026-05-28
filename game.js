@@ -1,55 +1,54 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-// Configuración de la cuadrícula
 const gridSize = 20; 
 const tileCount = canvas.width / gridSize;
 
-// Variables de Estado del Juego
 let snake = [];
 let dir = { x: 0, y: 0 };
 let nextDir = { x: 0, y: 0 };
-let items = []; // Almacena frutas/caramelos activos
+let items = []; 
 let score = 0;
 let coins = 0;
 let level = 1;
 let gameInterval = null;
 let isImmune = false;
-let gameSpeed = 130;
+let gameSpeed = 150; // Un poco más lento para poder apreciar los gráficos
 
-// Configuración de Skins
 let currentSkin = 'classic';
 let unlockedSkins = ['classic'];
 const skinsConfig = {
-    classic: { body: '#00ff66', head: '#00cc52' },
-    neon: { body: '#00d9ff', head: '#0088cc' },
-    gold: { body: '#ffd700', head: '#ccac00' }
+    classic: { body: '#00cc52', head: '#00ff66', outline: '#004d1f' },
+    neon: { body: '#0088cc', head: '#00d9ff', outline: '#00334d' },
+    gold: { body: '#ccac00', head: '#ffd700', outline: '#4d4000' }
 };
 
-// Mapas de los Niveles (0 = Vacío, 1 = Obstáculo)
+// Mapas (0 = Vacío, 1 = Obstáculo)
 const maps = {
-    1: [], // Totalmente limpio
-    2: [   // Columnas en las esquinas interiores
+    1: [], 
+    2: [   
         {x: 5, y: 5}, {x: 5, y: 6}, {x: 6, y: 5},
         {x: 14, y: 5}, {x: 14, y: 6}, {x: 13, y: 5},
         {x: 5, y: 14}, {x: 5, y: 13}, {x: 6, y: 14},
         {x: 14, y: 14}, {x: 14, y: 13}, {x: 13, y: 14}
     ],
-    3: [   // Barreras divisorias estilo laberinto horizontal
+    3: [   
         {x: 4, y: 10}, {x: 5, y: 10}, {x: 6, y: 10}, {x: 7, y: 10},
         {x: 12, y: 10}, {x: 13, y: 10}, {x: 14, y: 10}, {x: 15, y: 10},
         {x: 10, y: 4}, {x: 10, y: 5}, {x: 10, y: 15}, {x: 10, y: 16}
     ]
 };
 
-// Tipos de Ítems Disponibles en el Grid
+// Catálogo de ítems usando Emojis (¡Estilo Candy Crush!)
 const itemTypes = [
-    { name: 'apple', color: '#ff3333', points: 10, weight: 0.6 },
-    { name: 'candy', color: '#ff33ff', points: 25, weight: 0.3 },
-    { name: 'star', color: '#ffff33', points: 5, weight: 0.1, power: 'immunity' }
+    { name: 'apple', emoji: '🍎', points: 10, weight: 0.3 },
+    { name: 'banana', emoji: '🍌', points: 15, weight: 0.2 },
+    { name: 'cherry', emoji: '🍒', points: 20, weight: 0.2 },
+    { name: 'candy', emoji: '🍬', points: 30, weight: 0.15 },
+    { name: 'lollipop', emoji: '🍭', points: 40, weight: 0.1 },
+    { name: 'star', emoji: '⭐', points: 10, weight: 0.05, power: 'immunity' }
 ];
 
-// Inicialización del Juego
 function startGame() {
     document.getElementById("overlay").classList.add("hidden");
     resetGameState();
@@ -65,25 +64,20 @@ function resetGameState() {
     score = 0;
     level = 1;
     isImmune = false;
-    gameSpeed = 130;
+    gameSpeed = 150;
     items = [];
     updateHUD();
 }
 
-// Bucle Principal de Renderizado y Física
 function gameLoop() {
     dir = nextDir;
-    
-    // Mover Cabeza
     const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
 
-    // Validar Colisiones con Bordes o Mapas
     if (checkCollision(head)) {
         if (!isImmune) {
             endGame();
             return;
         } else {
-            // Si es inmune, rebota o atraviesa el borde de forma segura
             if (head.x < 0) head.x = tileCount - 1;
             if (head.x >= tileCount) head.x = 0;
             if (head.y < 0) head.y = tileCount - 1;
@@ -93,7 +87,6 @@ function gameLoop() {
 
     snake.unshift(head);
 
-    // Verificar si come algo
     let ate = false;
     for (let i = 0; i < items.length; i++) {
         if (head.x === items[i].x && head.y === items[i].y) {
@@ -105,24 +98,15 @@ function gameLoop() {
         }
     }
 
-    if (!ate) {
-        snake.pop();
-    }
-
-    // Dibujar Todo en Pantalla
+    if (!ate) snake.pop();
     draw();
 }
 
 function checkCollision(position) {
-    // Bordes del Mapa
-    if (position.x < 0 || position.x >= tileCount || position.y < 0 || position.y >= tileCount) {
-        return true;
-    }
-    // Chocar contra sí misma
+    if (position.x < 0 || position.x >= tileCount || position.y < 0 || position.y >= tileCount) return true;
     for (let i = 1; i < snake.length; i++) {
         if (position.x === snake[i].x && position.y === snake[i].y) return true;
     }
-    // Obstáculos del mapa del nivel actual
     const currentObstacles = maps[level] || [];
     for (let obs of currentObstacles) {
         if (position.x === obs.x && position.y === obs.y) return true;
@@ -132,15 +116,12 @@ function checkCollision(position) {
 
 function handleItemConsumption(item) {
     score += item.type.points;
-    coins += Math.floor(item.type.points / 2); // Ganancia de monedas reflectiva
+    coins += Math.floor(item.type.points / 2);
 
-    if (item.type.power === 'immunity') {
-        activateImmunity();
-    }
+    if (item.type.power === 'immunity') activateImmunity();
 
-    // Sistema de Progresión de Niveles Basado en Puntuación
-    if (score >= 100 && level === 1) triggerNextLevel(2, 110);
-    else if (score >= 250 && level === 2) triggerNextLevel(3, 90);
+    if (score >= 200 && level === 1) triggerNextLevel(2, 130);
+    else if (score >= 500 && level === 2) triggerNextLevel(3, 110);
 
     updateHUD();
 }
@@ -151,7 +132,7 @@ function activateImmunity() {
     setTimeout(() => {
         isImmune = false;
         document.getElementById("powerup-status").classList.add("hidden");
-    }, 6000); // 6 segundos de inmunidad dorada
+    }, 6000);
 }
 
 function triggerNextLevel(nextLvl, speed) {
@@ -162,7 +143,6 @@ function triggerNextLevel(nextLvl, speed) {
     items = [];
 }
 
-// Generación de ítems asegurando que no caigan sobre la serpiente ni paredes
 function spawnItem() {
     let x, y, valid = false;
     while (!valid) {
@@ -170,18 +150,12 @@ function spawnItem() {
         y = Math.floor(Math.random() * tileCount);
         valid = true;
 
-        // Comprobar colisión con la serpiente
-        for (let cell of snake) {
-            if (cell.x === x && cell.y === y) valid = false;
-        }
-        // Comprobar colisión con obstáculos del nivel
+        for (let cell of snake) if (cell.x === x && cell.y === y) valid = false;
+        
         const currentObstacles = maps[level] || [];
-        for (let obs of currentObstacles) {
-            if (obs.x === x && obs.y === y) valid = false;
-        }
+        for (let obs of currentObstacles) if (obs.x === x && obs.y === y) valid = false;
     }
 
-    // Selección probabilística de ítems
     const rand = Math.random();
     let selectedType = itemTypes[0];
     let cumulativeWeight = 0;
@@ -192,39 +166,102 @@ function spawnItem() {
             break;
         }
     }
-
     items.push({ x, y, type: selectedType });
 }
 
-// Renderizado Gráfico Completo
+// RENDERIZADO VISUAL MEJORADO
 function draw() {
-    // Limpiar Canvas
-    ctx.fillStyle = "#0d0d0f";
+    // 1. Fondo del nivel (Tablero de ajedrez sutil)
+    ctx.fillStyle = "#1a1e24";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    ctx.fillStyle = "#20252b";
+    for (let row = 0; row < tileCount; row++) {
+        for (let col = 0; col < tileCount; col++) {
+            if ((row + col) % 2 === 0) {
+                ctx.fillRect(col * gridSize, row * gridSize, gridSize, gridSize);
+            }
+        }
+    }
 
-    // Dibujar Obstáculos del Nivel Activo
-    ctx.fillStyle = "#3a3a45";
+    // 2. Obstáculos (Paredes estilo bloque 3D)
     const currentObstacles = maps[level] || [];
     for (let obs of currentObstacles) {
-        ctx.fillRect(obs.x * gridSize, obs.y * gridSize, gridSize - 1, gridSize - 1);
-    }
-
-    // Dibujar ítems activos en pantalla
-    for (let item of items) {
-        ctx.fillStyle = item.type.color;
-        ctx.beginPath();
-        ctx.arc((item.x * gridSize) + gridSize/2, (item.y * gridSize) + gridSize/2, gridSize/2 - 2, 0, 2 * Math.PI);
-        ctx.fill();
-    }
-
-    // Dibujar la Serpiente con el Skin seleccionado
-    const colors = skinsConfig[currentSkin];
-    snake.forEach((cell, index) => {
-        ctx.fillStyle = index === 0 ? colors.head : colors.body;
-        // Efecto visual si la inmunidad está encendida
-        if (isImmune) ctx.fillStyle = `hsl(${Date.now() % 360}, 100%, 50%)`;
+        const x = obs.x * gridSize;
+        const y = obs.y * gridSize;
         
-        ctx.fillRect(cell.x * gridSize, cell.y * gridSize, gridSize - 1, gridSize - 1);
+        ctx.fillStyle = "#4a4e59"; // Color base
+        ctx.fillRect(x, y, gridSize, gridSize);
+        
+        // Bordes para dar volumen
+        ctx.fillStyle = "#656a78"; // Brillo arriba
+        ctx.fillRect(x, y, gridSize, 3);
+        ctx.fillStyle = "#2d3038"; // Sombra abajo
+        ctx.fillRect(x, y + gridSize - 3, gridSize, 3);
+    }
+
+    // 3. Dibujar Ítems (Emojis)
+    ctx.font = "18px Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    for (let item of items) {
+        const cx = (item.x * gridSize) + gridSize / 2;
+        const cy = (item.y * gridSize) + gridSize / 2 + 2; // +2 para centrar verticalmente mejor
+        ctx.fillText(item.type.emoji, cx, cy);
+    }
+
+    // 4. Dibujar la Serpiente (Curvas y Ojos)
+    const colors = skinsConfig[currentSkin];
+    
+    snake.forEach((cell, index) => {
+        const cx = (cell.x * gridSize) + gridSize / 2;
+        const cy = (cell.y * gridSize) + gridSize / 2;
+        
+        ctx.fillStyle = index === 0 ? colors.head : colors.body;
+        
+        if (isImmune) ctx.fillStyle = `hsl(${Date.now() % 360}, 100%, 60%)`;
+
+        // Dibujar cuerpo como círculos conectados
+        ctx.beginPath();
+        ctx.arc(cx, cy, gridSize/2 - 1, 0, 2 * Math.PI);
+        ctx.fill();
+        
+        // Si no es el último, dibujar un puente hacia el siguiente segmento para que se vea continua
+        if (index < snake.length - 1) {
+            const nextCell = snake[index + 1];
+            const nx = (nextCell.x * gridSize) + gridSize / 2;
+            const ny = (nextCell.y * gridSize) + gridSize / 2;
+            
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(nx, ny);
+            ctx.lineWidth = gridSize - 2;
+            ctx.strokeStyle = ctx.fillStyle;
+            ctx.stroke();
+        }
+
+        // Dibujar Ojos en la cabeza
+        if (index === 0) {
+            ctx.fillStyle = "white";
+            let eye1 = { x: 0, y: 0 }, eye2 = { x: 0, y: 0 };
+            const offset = 4;
+            
+            // Posicionar ojos según dirección
+            if (dir.x === 1) { eye1 = {x: cx+offset, y: cy-offset}; eye2 = {x: cx+offset, y: cy+offset}; }
+            else if (dir.x === -1) { eye1 = {x: cx-offset, y: cy-offset}; eye2 = {x: cx-offset, y: cy+offset}; }
+            else if (dir.y === 1) { eye1 = {x: cx-offset, y: cy+offset}; eye2 = {x: cx+offset, y: cy+offset}; }
+            else if (dir.y === -1) { eye1 = {x: cx-offset, y: cy-offset}; eye2 = {x: cx+offset, y: cy-offset}; }
+            else { eye1 = {x: cx-offset, y: cy-offset}; eye2 = {x: cx+offset, y: cy-offset}; } // Default arriba
+
+            // Blancos del ojo
+            ctx.beginPath(); ctx.arc(eye1.x, eye1.y, 3, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(eye2.x, eye2.y, 3, 0, Math.PI*2); ctx.fill();
+            
+            // Pupilas
+            ctx.fillStyle = "black";
+            ctx.beginPath(); ctx.arc(eye1.x, eye1.y, 1.5, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(eye2.x, eye2.y, 1.5, 0, Math.PI*2); ctx.fill();
+        }
     });
 }
 
@@ -238,11 +275,10 @@ function endGame() {
     clearInterval(gameInterval);
     document.getElementById("overlay").classList.remove("hidden");
     document.getElementById("overlay-title").innerText = "FIN DEL JUEGO";
-    document.getElementById("overlay-desc").innerText = `¡Buen intento! Lograste llegar al nivel ${level} con ${score} puntos.`;
+    document.getElementById("overlay-desc").innerText = `¡Llegaste al nivel ${level} con ${score} puntos!`;
     document.getElementById("start-btn").innerText = "Volver a Intentar";
 }
 
-// Sistema de Gestión de Tienda (Persistente durante la sesión)
 function buySkin(skinId, price) {
     if (unlockedSkins.includes(skinId)) {
         currentSkin = skinId;
@@ -252,11 +288,10 @@ function buySkin(skinId, price) {
         currentSkin = skinId;
         updateHUD();
     } else {
-        alert("¡No tienes suficientes puntos/monedas Nibble!");
+        alert("¡No tienes suficientes monedas!");
         return;
     }
     
-    // Actualizar UI de botones en la tienda
     Object.keys(skinsConfig).forEach(id => {
         const itemEl = document.getElementById(`skin-${id}`);
         const btn = itemEl.querySelector("button");
@@ -273,7 +308,7 @@ function buySkin(skinId, price) {
     draw();
 }
 
-// Escuchador de Teclado (Controles WASD + Flechas con protección anti-suicidio)
+// Controles Teclado PC
 window.addEventListener("keydown", e => {
     switch (e.key) {
         case "ArrowUp":    case "w": case "W": if (dir.y !== 1)  nextDir = { x: 0, y: -1 }; break;
@@ -282,3 +317,33 @@ window.addEventListener("keydown", e => {
         case "ArrowRight": case "d": case "D": if (dir.x !== -1) nextDir = { x: 1, y: 0 };  break;
     }
 });
+
+// Controles Táctiles Celular (Swipe)
+let touchStartX = 0;
+let touchStartY = 0;
+
+canvas.addEventListener('touchstart', function(e) {
+    touchStartX = e.changedTouches[0].screenX;
+    touchStartY = e.changedTouches[0].screenY;
+}, false);
+
+canvas.addEventListener('touchend', function(e) {
+    let touchEndX = e.changedTouches[0].screenX;
+    let touchEndY = e.changedTouches[0].screenY;
+    handleSwipe(touchStartX, touchStartY, touchEndX, touchEndY);
+}, false);
+
+function handleSwipe(startX, startY, endX, endY) {
+    let dx = endX - startX;
+    let dy = endY - startY;
+    
+    if (Math.abs(dx) > Math.abs(dy)) {
+        // Movimiento horizontal
+        if (dx > 30 && dir.x !== -1) nextDir = { x: 1, y: 0 }; // Derecha
+        else if (dx < -30 && dir.x !== 1) nextDir = { x: -1, y: 0 }; // Izquierda
+    } else {
+        // Movimiento vertical
+        if (dy > 30 && dir.y !== -1) nextDir = { x: 0, y: 1 }; // Abajo
+        else if (dy < -30 && dir.y !== 1) nextDir = { x: 0, y: -1 }; // Arriba
+    }
+}
