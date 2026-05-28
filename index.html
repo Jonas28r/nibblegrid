@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nibble Grid - Arcade Web</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="game-container">
+        <!-- Panel Lateral / HUD -->
+        <div class="hud">
+            <h1>NIBBLE GRID</h1>
+            <div class="stats">
+                <p>Nivel: <span id="level-val">1</span></p>
+                <p>Puntuación: <span id="score-val">0</span></p>
+                <p>Puntos/Monedas: $<span id="coins-val">0</span></p>
+            </div>
+            
+            <!-- Tienda de Skins -->
+            <div class="shop">
+                <h3>Tienda de Skins</h3>
+                <div class="shop-item" id="skin-classic" onclick="buySkin('classic', 0)">
+                    <span>Clásica (Verde)</span>
+                    <button class="active">Equipado</button>
+                </div>
+                <div class="shop-item" id="skin-neon" onclick="buySkin('neon', 30)">
+                    <span>Cyber Neon (Azul)</span>
+                    <button>$30</button>
+                </div>
+                <div class="shop-item" id="skin-gold" onclick="buySkin('gold', 75)">
+                    <span>Oro Real (Dorado)</span>
+                    <button>$75</button>
+                </div>
+            </div>
+
+            <!-- Estado de Power-up -->
+            <div id="powerup-status" class="hidden">¡Inmunidad Activa!</div>
+        </div>
+
+        <!-- Área de Juego (Canvas) -->
+        <div class="canvas-area">
+            <canvas id="gameCanvas" width="400" height="400"></canvas>
+            
+            <!-- Pantalla de Inicio / Game Over Overlays -->
+            <div id="overlay" class="overlay">
+                <div class="overlay-content">
+                    <h2 id="overlay-title">NIBBLE GRID</h2>
+                    <p id="overlay-desc">Usa las flechas o WASD para moverte. Come frutas y caramelos para avanzar de nivel.</p>
+                    <button id="start-btn" onclick="startGame()">Jugar Ahora</button>
+                    
+                    <div class="credits">
+                        <p><strong>Créditos de Honor:</strong></p>
+                        <p>Lógica Original: Creadores de Arcade (1976)</p>
+                        <p>Ingeniería de Adaptación: Taneli Armanto (Nokia)</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>
+
