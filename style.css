@@ -1,0 +1,162 @@
+:root {
+    --bg-color: #121214;
+    --card-bg: #1a1a1e;
+    --accent: #00ff66;
+    --text-main: #ffffff;
+    --text-muted: #a0a0b0;
+    --border-color: #2a2a30;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: var(--bg-color);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: var(--text-main);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+.game-container {
+    display: flex;
+    gap: 20px;
+    background-color: var(--card-bg);
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--border-color);
+}
+
+/* HUD Lateral */
+.hud {
+    width: 220px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.hud h1 {
+    font-size: 1.5rem;
+    letter-spacing: 2px;
+    margin-top: 0;
+    color: var(--accent);
+    text-align: center;
+}
+
+.stats p {
+    font-size: 1.1rem;
+    margin: 8px 0;
+}
+
+/* Tienda */
+.shop {
+    background: #121214;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.shop h3 {
+    margin-top: 0;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.shop-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
+    margin-bottom: 8px;
+}
+
+button {
+    background-color: #222;
+    color: white;
+    border: 1px solid #444;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+button:hover {
+    background-color: var(--accent);
+    color: #000;
+}
+
+button.active {
+    background-color: #333;
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
+#powerup-status {
+    background: gold;
+    color: black;
+    text-align: center;
+    font-weight: bold;
+    padding: 5px;
+    border-radius: 4px;
+    animation: blink 1s infinite;
+}
+
+.hidden { display: none !important; }
+
+/* Canvas y Pantallas */
+.canvas-area {
+    position: relative;
+    width: 400px;
+    height: 400px;
+}
+
+canvas {
+    background-color: #0d0d0f;
+    border-radius: 6px;
+    border: 2px solid var(--border-color);
+}
+
+.overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(10, 10, 12, 0.9);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 6px;
+}
+
+.overlay-content {
+    text-align: center;
+    padding: 20px;
+}
+
+#start-btn {
+    padding: 10px 24px;
+    font-size: 1rem;
+    font-weight: bold;
+    background-color: var(--accent);
+    color: black;
+    border: none;
+    border-radius: 6px;
+    margin-top: 15px;
+}
+
+.credits {
+    margin-top: 30px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    border-top: 1px solid #333;
+    padding-top: 10px;
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
