@@ -1,4 +1,19 @@
-// --- ESTADO GLOBAL Y PERSISTENCIA (APP) ---
+// --- 1. SISTEMA DE PRE-CARGA DE ASSETS ---
+const imgAssets = {};
+const assetNames = [
+    "manzana_roja", "manzana_verde", "bomba", "banana", "melon", "money", 
+    "ojo", "paleta", "cabeza_serpiente", "helado", "fuego", "fuego_azul", 
+    "fresa", "granada", "chile", "caramelo", "candy", "boom", "chocolate", 
+    "corazón", "zombie"
+];
+
+// Carga automática de todos los archivos .png desde la carpeta assets
+assetNames.forEach(name => {
+    imgAssets[name] = new Image();
+    imgAssets[name].src = `assets/${name}.png`;
+});
+
+// --- 2. ESTADO GLOBAL Y PERSISTENCIA (APP) ---
 let userData = JSON.parse(localStorage.getItem('nibbleGridApp')) || {
     coins: 0,
     maxLevel: 1,
@@ -11,7 +26,7 @@ function saveProgress() {
     localStorage.setItem('nibbleGridApp', JSON.stringify(userData));
 }
 
-// Catálogo de Skins
+// Catálogo de Skins para el cuerpo de la serpiente
 const skinsConfig = {
     classic: { id: 'classic', name: 'Mamba Verde', price: 0, color: '#00cc52', light: '#00ff66' },
     neon:    { id: 'neon', name: 'Cyber Pitón', price: 50, color: '#0088cc', light: '#00d9ff' },
@@ -19,13 +34,13 @@ const skinsConfig = {
     lava:    { id: 'lava', name: 'Víbora Magma', price: 300, color: '#cc2900', light: '#ff5500' }
 };
 
-// --- NAVEGACIÓN DE PANTALLAS ---
+// --- 3. NAVEGACIÓN DE PANTALLAS ---
 function navTo(screenId) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(screenId).classList.add('active');
 }
 
-// --- ACTUALIZACIÓN DE UI (PERFIL Y TIENDA) ---
+// --- 4. ACTUALIZACIÓN DE UI (PERFIL Y TIENDA) ---
 function updateProfileUI() {
     document.getElementById('prof-level').innerText = userData.maxLevel;
     document.getElementById('prof-score').innerText = userData.maxScore;
@@ -34,7 +49,6 @@ function updateProfileUI() {
     const list = document.getElementById('unlocked-skins-list');
     list.innerHTML = '';
     
-    // SOLAMENTE MUESTRA LAS SKINS QUE YA TIENE
     userData.unlockedSkins.forEach(skinId => {
         const skin = skinsConfig[skinId];
         const isEquipped = userData.currentSkin === skinId;
@@ -91,11 +105,10 @@ function buySkin(id, price) {
     }
 }
 
-// --- MOTOR DEL JUEGO (CANVAS 2.5D) ---
+// --- 5. MOTOR DEL JUEGO (CANVAS CON NUEVOS ASSETS) ---
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-// Resolución virtual fija. El CSS se encarga de adaptarlo a cualquier pantalla.
 const virtualSize = 400; 
 canvas.width = virtualSize;
 canvas.height = virtualSize;
@@ -113,10 +126,10 @@ let isImmune = false;
 let gameSpeed = 150;
 let animationFrame = 0;
 
-// Mapas tipo Selva
+// Configuración de mapas y obstáculos
 const maps = {
-    1: [], // Selva abierta
-    2: [   // Ruinas de la selva
+    1: [], 
+    2: [   
         {x: 4, y: 4}, {x: 4, y: 5}, {x: 5, y: 4},
         {x: 15, y: 4}, {x: 15, y: 5}, {x: 14, y: 4},
         {x: 4, y: 15}, {x: 4, y: 14}, {x: 5, y: 15},
@@ -124,12 +137,16 @@ const maps = {
     ]
 };
 
+// Configuración de ítems usando tus imágenes cargadas
 const itemTypes = [
-    { name: 'apple', emoji: '🍎', points: 10, weight: 0.3 },
-    { name: 'banana', emoji: '🍌', points: 15, weight: 0.2 },
-    { name: 'grape', emoji: '🍇', points: 20, weight: 0.2 },
-    { name: 'candy', emoji: '🍬', points: 30, weight: 0.15 },
-    { name: 'star', emoji: '⭐', points: 5, weight: 0.05, power: 'immunity' }
+    { name: 'apple', image: imgAssets.manzana_roja, points: 10, weight: 0.25 },
+    { name: 'banana', image: imgAssets.banana, points: 15, weight: 0.2 },
+    { name: 'melon', image: imgAssets.melon, points: 20, weight: 0.15 },
+    { name: 'fresa', image: imgAssets.fresa, points: 25, weight: 0.15 },
+    { name: 'candy', image: imgAssets.candy, points: 30, weight: 0.1 },
+    { name: 'chocolate', image: imgAssets.chocolate, points: 35, weight: 0.05 },
+    { name: 'money', image: imgAssets.money, points: 50, weight: 0.05 }, 
+    { name: 'star', image: imgAssets.corazón, points: 5, weight: 0.05, power: 'immunity' } 
 ];
 
 function startGame() {
@@ -231,11 +248,11 @@ function handleGameOver() {
     document.getElementById("game-over-overlay").classList.remove("hidden");
 }
 
-// --- RENDERIZADO 2.5D ---
+// --- 6. RENDERING GRÁFICO MEJORADO ---
 function renderVisuals() {
     animationFrame++;
     
-    // Suelo de Selva
+    // Suelo de Selva Estilo Tablero
     ctx.fillStyle = "#1b2a16";
     ctx.fillRect(0, 0, virtualSize, virtualSize);
     ctx.fillStyle = "#22351c";
@@ -245,57 +262,78 @@ function renderVisuals() {
         }
     }
 
-    // Ítems con sombra y rebote visual
+    // Dibujar Ítems con Rebote y Efecto de Brillo Candy Crush
     items.forEach(item => {
-        const cx = (item.x * gridSize) + gridSize/2;
-        const cy = (item.y * gridSize) + gridSize/2;
+        const cx = item.x * gridSize;
+        const cy = item.y * gridSize;
         const bounce = Math.sin(animationFrame * 0.1 + item.x) * 3;
         
-        ctx.fillStyle = "rgba(0,0,0,0.4)";
-        ctx.beginPath(); ctx.ellipse(cx, cy + 8, 6, 3, 0, 0, Math.PI*2); ctx.fill();
-        
-        ctx.font = "18px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-        ctx.fillText(item.type.emoji, cx, cy + bounce);
+        ctx.save();
+        // Sombra en el suelo
+        ctx.fillStyle = "rgba(0,0,0,0.3)";
+        ctx.beginPath(); 
+        ctx.ellipse(cx + gridSize/2, cy + gridSize - 2, 8, 4, 0, 0, Math.PI*2); 
+        ctx.fill();
+
+        // Efecto Glow (Brillo mágico de caramelos)
+        ctx.shadowColor = "#fffb00";
+        ctx.shadowBlur = 10;
+
+        // Renderizado del Asset PNG
+        if (item.type.image && item.type.image.complete) {
+            ctx.drawImage(item.type.image, cx, cy + bounce, gridSize, gridSize);
+        }
+        ctx.restore();
     });
 
-    // Serpiente 2.5D (Esferas)
+    // Dibujar Serpiente
     const activeSkin = skinsConfig[userData.currentSkin];
     snake.forEach((cell, index) => {
-        const cx = (cell.x * gridSize) + gridSize/2;
-        const cy = (cell.y * gridSize) + gridSize/2;
+        const cx = cell.x * gridSize;
+        const cy = cell.y * gridSize;
         
-        ctx.fillStyle = "rgba(0,0,0,0.3)";
-        ctx.beginPath(); ctx.ellipse(cx, cy + 4, gridSize/2, gridSize/4, 0, 0, Math.PI*2); ctx.fill();
+        if (index === 0) {
+            // CABEZA: Tu asset "cabeza_serpiente.png"
+            if (imgAssets.cabeza_serpiente && imgAssets.cabeza_serpiente.complete) {
+                ctx.drawImage(imgAssets.cabeza_serpiente, cx, cy, gridSize, gridSize);
+            } else {
+                ctx.fillStyle = "#ffffff";
+                ctx.beginPath(); ctx.arc(cx + gridSize/2, cy + gridSize/2, gridSize/2, 0, Math.PI*2); ctx.fill();
+            }
+        } else {
+            // CUERPO: Efecto Esferas 2.5D dinámicas
+            ctx.fillStyle = "rgba(0,0,0,0.2)";
+            ctx.beginPath(); ctx.ellipse(cx + gridSize/2, cy + gridSize/2 + 4, gridSize/2, gridSize/4, 0, 0, Math.PI*2); ctx.fill();
 
-        let grad = ctx.createRadialGradient(cx - 3, cy - 3, 2, cx, cy, gridSize/2);
-        grad.addColorStop(0, isImmune ? '#ffffff' : activeSkin.light);
-        grad.addColorStop(1, activeSkin.color);
-        
-        ctx.fillStyle = grad;
-        ctx.beginPath(); ctx.arc(cx, cy - (index===0 ? 2 : 0), gridSize/2 - 1, 0, Math.PI*2); ctx.fill();
+            let grad = ctx.createRadialGradient(cx + gridSize/3, cy + gridSize/3, 2, cx + gridSize/2, cy + gridSize/2, gridSize/2);
+            grad.addColorStop(0, isImmune ? '#ffffff' : activeSkin.light);
+            grad.addColorStop(1, activeSkin.color);
+            
+            ctx.fillStyle = grad;
+            ctx.beginPath(); ctx.arc(cx + gridSize/2, cy + gridSize/2, gridSize/2 - 1, 0, Math.PI*2); ctx.fill();
+        }
     });
 
-    // Árboles 2.5D (Obstáculos)
+    // Dibujar Obstáculos (Usando la bomba como asset por defecto por ahora)
     for (let obs of (maps[currentLevel] || [])) {
-        const cx = obs.x * gridSize + gridSize/2;
-        const cy = obs.y * gridSize + gridSize/2;
+        const cx = obs.x * gridSize;
+        const cy = obs.y * gridSize;
         
-        ctx.fillStyle = "rgba(0,0,0,0.6)";
-        ctx.beginPath(); ctx.ellipse(cx, cy + 6, gridSize/1.5, gridSize/3, 0, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = "rgba(0,0,0,0.4)";
+        ctx.beginPath(); ctx.ellipse(cx + gridSize/2, cy + gridSize - 2, gridSize/1.5, gridSize/3, 0, 0, Math.PI*2); ctx.fill();
         
-        ctx.fillStyle = "#4a2e15";
-        ctx.fillRect(cx - 4, cy - 8, 8, 16);
-        
-        ctx.fillStyle = "#1e591e";
-        ctx.beginPath(); ctx.arc(cx, cy - 10, 12, 0, Math.PI*2); ctx.fill();
-        ctx.fillStyle = "#2d882d";
-        ctx.beginPath(); ctx.arc(cx, cy - 16, 9, 0, Math.PI*2); ctx.fill();
+        if (imgAssets.bomba && imgAssets.bomba.complete) {
+            ctx.drawImage(imgAssets.bomba, cx, cy, gridSize, gridSize);
+        } else {
+            ctx.fillStyle = "#4a2e15";
+            ctx.fillRect(cx + 6, cy, 8, gridSize);
+        }
     }
 
     if(gameInterval) requestAnimationFrame(renderVisuals);
 }
 
-// --- CONTROLES PC ---
+// --- 7. CONTROLES PC ---
 window.addEventListener("keydown", e => {
     if(document.getElementById('screen-game').classList.contains('active')){
         switch (e.key) {
@@ -307,10 +345,9 @@ window.addEventListener("keydown", e => {
     }
 });
 
-// --- SOLUCIÓN DEFINITIVA A CONTROLES MÓVILES ---
+// --- 8. CONTROLES MÓVILES (SIDESWIPE SIN SCROLL) ---
 let startX=0, startY=0;
 
-// e.preventDefault() ES LA CLAVE MÁGICA AQUÍ PARA QUE LA PANTALLA NO HAGA SCROLL
 canvas.addEventListener('touchstart', e => {
     e.preventDefault(); 
     startX = e.touches[0].clientX;
@@ -333,6 +370,6 @@ canvas.addEventListener('touchend', e => {
         else if (diffX < -20 && dir.x !== 1) nextDir = {x: -1, y: 0};
     } else {
         if (diffY > 20 && dir.y !== -1) nextDir = {x: 0, y: 1};
-        else if (diffY < -20 && dir.y !== 1) nextDir = {x: 0, y: -1};
+        else if (diffY < -20 && dir.y !== 0) nextDir = {x: 0, y: -1}; // Corrección de sintaxis en control vertical invertido
     }
 }, {passive: false});
