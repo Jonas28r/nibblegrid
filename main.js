@@ -15,26 +15,10 @@ let speed = 12;
 let running = false;
 
 const levels = [
-  {
-    name: "Selva",
-    bg: 0x0b3d0b,
-    obstacles: "trees"
-  },
-  {
-    name: "Ciudad",
-    bg: 0x222222,
-    obstacles: "buildings"
-  },
-  {
-    name: "Ruinas",
-    bg: 0x3b2f2f,
-    obstacles: "ruins"
-  },
-  {
-    name: "Desierto",
-    bg: 0xd2b48c,
-    obstacles: "rocks"
-  }
+  { name: "Selva", bg: 0x0b3d0b, obstacle: "trees" },
+  { name: "Ciudad", bg: 0x222222, obstacle: "buildings" },
+  { name: "Ruinas", bg: 0x3b2f2f, obstacle: "ruins" },
+  { name: "Desierto", bg: 0xd2b48c, obstacle: "rocks" }
 ];
 
 init();
@@ -56,16 +40,22 @@ function init() {
   renderer.setSize(window.innerWidth, window.innerHeight);
   document.body.appendChild(renderer.domElement);
 
-  camera.position.set(0, 14, 18);
-  camera.lookAt(0, 0, 0);
-
   window.addEventListener("resize", onResize);
 
-  scene.add(new THREE.AmbientLight(0xffffff, 1));
+  camera.position.set(0, 12, 18);
 
+  // 🌟 luces PRO
+  const ambient = new THREE.AmbientLight(0xffffff, 0.4);
+  scene.add(ambient);
+
+  const directional = new THREE.DirectionalLight(0xffffff, 1);
+  directional.position.set(10, 20, 10);
+  scene.add(directional);
+
+  // 🌍 suelo
   let floor = new THREE.Mesh(
     new THREE.PlaneGeometry(80, 80),
-    new THREE.MeshBasicMaterial({ color: 0x444444, side: THREE.DoubleSide })
+    new THREE.MeshStandardMaterial({ color: 0x444444 })
   );
   floor.rotation.x = Math.PI / 2;
   scene.add(floor);
@@ -87,13 +77,13 @@ function init() {
   }
 
   spawnFood();
-
   loadLevel(1);
+
   setupControls();
   setupUI();
 }
 
-/* ================= CONTROLES ================= */
+/* ================= CONTROLS ================= */
 
 function setupControls() {
   window.addEventListener("keydown", (e) => {
@@ -109,7 +99,7 @@ function setupUI() {
   document.getElementById("pauseBtn").onclick = () => running = !running;
 }
 
-/* ================= ENTIDADES ================= */
+/* ================= OBJECTS ================= */
 
 function createSegment(color) {
   let geo = new THREE.SphereGeometry(0.5, 14, 14);
@@ -133,7 +123,7 @@ function spawnFood() {
   scene.add(food);
 }
 
-/* ================= OBSTÁCULOS (🔥 NUEVO) ================= */
+/* ================= OBSTACLES ================= */
 
 function clearObstacles() {
   obstacles.forEach(o => scene.remove(o));
@@ -143,18 +133,18 @@ function clearObstacles() {
 function spawnObstacles(type) {
   clearObstacles();
 
-  let count = 15;
+  let color = 0x888888;
 
-  for (let i = 0; i < count; i++) {
+  if (type === "trees") color = 0x145a32;
+  if (type === "buildings") color = 0x555555;
+  if (type === "ruins") color = 0x6e2c00;
+  if (type === "rocks") color = 0x7f8c8d;
+
+  for (let i = 0; i < 18; i++) {
     let obs = new THREE.Mesh(
       new THREE.BoxGeometry(1, 1, 1),
-      new THREE.MeshStandardMaterial({ color: 0x888888 })
+      new THREE.MeshStandardMaterial({ color })
     );
-
-    if (type === "trees") obs.material.color.set(0x145a32);
-    if (type === "buildings") obs.material.color.set(0x555555);
-    if (type === "ruins") obs.material.color.set(0x6e2c00);
-    if (type === "rocks") obs.material.color.set(0x7f8c8d);
 
     obs.position.set(
       Math.floor(Math.random() * 40 - 20),
@@ -167,7 +157,7 @@ function spawnObstacles(type) {
   }
 }
 
-/* ================= MOVIMIENTO ================= */
+/* ================= MOVEMENT ================= */
 
 function moveSnake() {
   for (let i = snake.length - 1; i > 0; i--) {
@@ -196,14 +186,62 @@ function moveEnemy() {
   }
 }
 
-/* ================= COLISIONES ================= */
+/* ================= CAMERA (WOW EFFECT) ================= */
+
+function updateCamera() {
+  let head = snake[0];
+
+  camera.position.x += (head.position.x - camera.position.x) * 0.08;
+  camera.position.z += (head.position.z + 12 - camera.position.z) * 0.08;
+
+  camera.lookAt(head.position);
+
+  camera.fov = 75 + Math.sin(Date.now() * 0.005) * 2;
+  camera.updateProjectionMatrix();
+}
+
+/* ================= EFFECT ================= */
+
+function eatEffect(pos) {
+  for (let i = 0; i < 5; i++) {
+    let p = createSegment(0xffff00);
+    p.position.copy(pos);
+    scene.add(p);
+
+    let angle = Math.random() * Math.PI * 2;
+
+    let vx = Math.cos(angle) * 0.15;
+    let vz = Math.sin(angle) * 0.15;
+
+    let life = 0;
+
+    function animateP() {
+      if (life > 20) {
+        scene.remove(p);
+        return;
+      }
+
+      p.position.x += vx;
+      p.position.z += vz;
+      p.position.y += 0.05;
+
+      life++;
+      requestAnimationFrame(animateP);
+    }
+
+    animateP();
+  }
+}
+
+/* ================= GAME LOGIC ================= */
 
 function checkGame() {
   let head = snake[0];
 
-  // 🍎 comida
   if (head.position.distanceTo(food.position) < 1) {
     score += 10;
+
+    eatEffect(food.position);
 
     let seg = createSegment(0x00ff00);
     seg.position.copy(snake[snake.length - 1].position);
@@ -213,16 +251,14 @@ function checkGame() {
     spawnFood();
   }
 
-  // 👾 enemigo
   if (head.position.distanceTo(enemy[0].position) < 1.2) {
-    alert("💀 Te atrapó el enemigo");
+    alert("💀 Perdiste");
     location.reload();
   }
 
-  // 🧱 obstáculos (🔥 NUEVO)
   for (let o of obstacles) {
     if (head.position.distanceTo(o.position) < 1) {
-      alert("💥 Chocaste con un obstáculo");
+      alert("💥 Choque con obstáculo");
       location.reload();
     }
   }
@@ -231,27 +267,14 @@ function checkGame() {
     `Score: ${score} | Level: ${level}`;
 }
 
-/* ================= LEVEL SYSTEM ================= */
+/* ================= LEVEL ================= */
 
 function loadLevel(lvl) {
   level = lvl;
 
   scene.background = new THREE.Color(levels[lvl - 1].bg);
 
-  spawnObstacles(levels[lvl - 1].obstacles);
-}
-
-function levelUp() {
-  level++;
-
-  if (level > levels.length) {
-    alert("🏆 Ganaste todos los mundos");
-    location.reload();
-    return;
-  }
-
-  loadLevel(level);
-  speed = Math.max(6, speed - 2);
+  spawnObstacles(levels[lvl - 1].obstacle);
 }
 
 /* ================= LOOP ================= */
@@ -270,11 +293,9 @@ function animate() {
     moveSnake();
     moveEnemy();
     checkGame();
-
-    if (score > 0 && score % 50 === 0) {
-      levelUp();
-    }
   }
+
+  updateCamera();
 
   renderer.render(scene, camera);
 }
