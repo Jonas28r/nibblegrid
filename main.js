@@ -11,14 +11,14 @@ let score = 0;
 let level = 1;
 
 let tick = 0;
-let speed = 12;
+let speed = 10;
 let running = false;
 
 const levels = [
   { name: "Selva", bg: 0x0b3d0b, obstacle: "trees" },
-  { name: "Ciudad", bg: 0x222222, obstacle: "buildings" },
-  { name: "Ruinas", bg: 0x3b2f2f, obstacle: "ruins" },
-  { name: "Desierto", bg: 0xd2b48c, obstacle: "rocks" }
+  { name: "Ciudad", bg: 0x1f1f1f, obstacle: "buildings" },
+  { name: "Ruinas", bg: 0x2b1d0e, obstacle: "ruins" },
+  { name: "Desierto", bg: 0xd8c292, obstacle: "rocks" }
 ];
 
 init();
@@ -30,7 +30,7 @@ function init() {
   scene = new THREE.Scene();
 
   camera = new THREE.PerspectiveCamera(
-    75,
+    70,
     window.innerWidth / window.innerHeight,
     0.1,
     1000
@@ -38,39 +38,47 @@ function init() {
 
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.shadowMap.enabled = true;
   document.body.appendChild(renderer.domElement);
 
   window.addEventListener("resize", onResize);
 
   camera.position.set(0, 12, 18);
 
-  // 🌟 luces PRO
-  const ambient = new THREE.AmbientLight(0xffffff, 0.4);
+  /* 🌟 ILUMINACIÓN PLAY STORE STYLE */
+  const ambient = new THREE.AmbientLight(0xffffff, 0.35);
   scene.add(ambient);
 
-  const directional = new THREE.DirectionalLight(0xffffff, 1);
-  directional.position.set(10, 20, 10);
-  scene.add(directional);
+  const sun = new THREE.DirectionalLight(0xffffff, 1.2);
+  sun.position.set(10, 20, 10);
+  sun.castShadow = true;
+  scene.add(sun);
 
-  // 🌍 suelo
+  /* 🌍 SUELO CON PROFUNDIDAD */
   let floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(80, 80),
-    new THREE.MeshStandardMaterial({ color: 0x444444 })
+    new THREE.PlaneGeometry(100, 100),
+    new THREE.MeshStandardMaterial({
+      color: 0x333333,
+      roughness: 0.9,
+      metalness: 0.1
+    })
   );
+
   floor.rotation.x = Math.PI / 2;
+  floor.receiveShadow = true;
   scene.add(floor);
 
-  // 🐍 jugador
-  for (let i = 0; i < 6; i++) {
-    let seg = createSegment(0x00ff00);
+  /* 🐍 PLAYER SNAKE */
+  for (let i = 0; i < 7; i++) {
+    let seg = createSegment(0x00ff55);
     seg.position.x = -i;
     snake.push(seg);
     scene.add(seg);
   }
 
-  // 👾 enemigo
+  /* 👾 ENEMY */
   for (let i = 0; i < 5; i++) {
-    let seg = createSegment(0xff0000);
+    let seg = createSegment(0xff3355);
     seg.position.x = i + 10;
     enemy.push(seg);
     scene.add(seg);
@@ -81,6 +89,22 @@ function init() {
 
   setupControls();
   setupUI();
+}
+
+/* ================= SNAKE LOOK (MEJORADO) ================= */
+
+function createSegment(color) {
+  let geo = new THREE.SphereGeometry(0.55, 18, 18);
+  let mat = new THREE.MeshStandardMaterial({
+    color,
+    roughness: 0.4,
+    metalness: 0.2
+  });
+
+  let mesh = new THREE.Mesh(geo, mat);
+  mesh.castShadow = true;
+
+  return mesh;
 }
 
 /* ================= CONTROLS ================= */
@@ -94,17 +118,11 @@ function setupControls() {
   });
 }
 
+/* ================= UI ================= */
+
 function setupUI() {
   document.getElementById("startBtn").onclick = () => running = true;
   document.getElementById("pauseBtn").onclick = () => running = !running;
-}
-
-/* ================= OBJECTS ================= */
-
-function createSegment(color) {
-  let geo = new THREE.SphereGeometry(0.5, 14, 14);
-  let mat = new THREE.MeshStandardMaterial({ color });
-  return new THREE.Mesh(geo, mat);
 }
 
 /* ================= FOOD ================= */
@@ -113,6 +131,7 @@ function spawnFood() {
   if (food) scene.remove(food);
 
   food = createSegment(0xffff00);
+  food.scale.set(0.9, 0.9, 0.9);
 
   food.position.set(
     Math.floor(Math.random() * 30 - 15),
@@ -125,26 +144,28 @@ function spawnFood() {
 
 /* ================= OBSTACLES ================= */
 
-function clearObstacles() {
+function spawnObstacles(type) {
   obstacles.forEach(o => scene.remove(o));
   obstacles = [];
-}
-
-function spawnObstacles(type) {
-  clearObstacles();
 
   let color = 0x888888;
 
-  if (type === "trees") color = 0x145a32;
+  if (type === "trees") color = 0x1e8449;
   if (type === "buildings") color = 0x555555;
   if (type === "ruins") color = 0x6e2c00;
   if (type === "rocks") color = 0x7f8c8d;
 
-  for (let i = 0; i < 18; i++) {
+  for (let i = 0; i < 20; i++) {
     let obs = new THREE.Mesh(
-      new THREE.BoxGeometry(1, 1, 1),
-      new THREE.MeshStandardMaterial({ color })
+      new THREE.BoxGeometry(1.2, 1.2, 1.2),
+      new THREE.MeshStandardMaterial({
+        color,
+        roughness: 0.8,
+        metalness: 0.1
+      })
     );
+
+    obs.castShadow = true;
 
     obs.position.set(
       Math.floor(Math.random() * 40 - 20),
@@ -178,52 +199,49 @@ function moveEnemy() {
     target.z - head.position.z
   ).normalize();
 
-  head.position.x += dir.x * 0.25;
-  head.position.z += dir.z * 0.25;
+  head.position.x += dir.x * 0.22;
+  head.position.z += dir.z * 0.22;
 
   for (let i = enemy.length - 1; i > 0; i--) {
     enemy[i].position.copy(enemy[i - 1].position);
   }
 }
 
-/* ================= CAMERA (WOW EFFECT) ================= */
+/* ================= CAMERA (AAA FEEL) ================= */
 
 function updateCamera() {
   let head = snake[0];
 
-  camera.position.x += (head.position.x - camera.position.x) * 0.08;
-  camera.position.z += (head.position.z + 12 - camera.position.z) * 0.08;
+  camera.position.x += (head.position.x - camera.position.x) * 0.07;
+  camera.position.z += (head.position.z + 14 - camera.position.z) * 0.07;
 
   camera.lookAt(head.position);
-
-  camera.fov = 75 + Math.sin(Date.now() * 0.005) * 2;
-  camera.updateProjectionMatrix();
 }
 
 /* ================= EFFECT ================= */
 
 function eatEffect(pos) {
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 6; i++) {
     let p = createSegment(0xffff00);
     p.position.copy(pos);
+    p.scale.set(0.3, 0.3, 0.3);
     scene.add(p);
 
     let angle = Math.random() * Math.PI * 2;
-
-    let vx = Math.cos(angle) * 0.15;
-    let vz = Math.sin(angle) * 0.15;
+    let vx = Math.cos(angle) * 0.2;
+    let vz = Math.sin(angle) * 0.2;
 
     let life = 0;
 
     function animateP() {
-      if (life > 20) {
+      if (life > 18) {
         scene.remove(p);
         return;
       }
 
       p.position.x += vx;
       p.position.z += vz;
-      p.position.y += 0.05;
+      p.position.y += 0.03;
 
       life++;
       requestAnimationFrame(animateP);
@@ -243,12 +261,14 @@ function checkGame() {
 
     eatEffect(food.position);
 
-    let seg = createSegment(0x00ff00);
+    let seg = createSegment(0x00ff55);
     seg.position.copy(snake[snake.length - 1].position);
     snake.push(seg);
     scene.add(seg);
 
     spawnFood();
+
+    if (score % 50 === 0) levelUp();
   }
 
   if (head.position.distanceTo(enemy[0].position) < 1.2) {
@@ -257,8 +277,8 @@ function checkGame() {
   }
 
   for (let o of obstacles) {
-    if (head.position.distanceTo(o.position) < 1) {
-      alert("💥 Choque con obstáculo");
+    if (head.position.distanceTo(o.position) < 1.2) {
+      alert("💥 Choque");
       location.reload();
     }
   }
@@ -275,6 +295,19 @@ function loadLevel(lvl) {
   scene.background = new THREE.Color(levels[lvl - 1].bg);
 
   spawnObstacles(levels[lvl - 1].obstacle);
+}
+
+function levelUp() {
+  level++;
+
+  if (level > levels.length) {
+    alert("🏆 Ganaste todo");
+    location.reload();
+    return;
+  }
+
+  loadLevel(level);
+  speed = Math.max(6, speed - 1);
 }
 
 /* ================= LOOP ================= */
