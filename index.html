@@ -1,78 +1,14 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nibble Grid - App</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <title>Snake 3D</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <div id="score">Score: 0</div>
 
-    <div id="app-container">
-        
-        <div id="screen-home" class="screen active">
-            <div class="logo-container">
-                <h1>NIBBLE GRID</h1>
-                <p class="subtitle">Aventura 2.5D</p>
-            </div>
-            
-            <div class="menu-buttons">
-                <button class="btn-main" onclick="navTo('screen-game'); startGame();">🎮 JUGAR AHORA</button>
-                <button class="btn-secondary" onclick="navTo('screen-profile'); updateProfileUI();">👤 MI PERFIL</button>
-                <button class="btn-secondary" onclick="navTo('screen-shop'); updateShopUI();">🛒 TIENDA</button>
-            </div>
-        </div>
-
-        <div id="screen-profile" class="screen">
-            <div class="header">
-                <button class="btn-back" onclick="navTo('screen-home')">⬅ Volver</button>
-                <h2>Mi Perfil</h2>
-            </div>
-            
-            <div class="stats-card">
-                <div class="stat"><span>Nivel Máximo:</span> <span id="prof-level" class="highlight">1</span></div>
-                <div class="stat"><span>Puntuación Récord:</span> <span id="prof-score" class="highlight">0</span></div>
-                <div class="stat"><span>Monedas:</span> <span id="prof-coins" class="highlight">$0</span></div>
-            </div>
-
-            <h3>Mis Skins Obtenidas</h3>
-            <div id="unlocked-skins-list" class="skins-grid">
-                </div>
-        </div>
-
-        <div id="screen-shop" class="screen">
-            <div class="header">
-                <button class="btn-back" onclick="navTo('screen-home')">⬅ Volver</button>
-                <h2>Tienda</h2>
-            </div>
-            <p style="text-align:center; color:#aaa;">Monedas: <strong id="shop-coins" style="color:#00ff66;">$0</strong></p>
-            <div class="skins-grid" id="all-skins-list">
-                </div>
-        </div>
-
-        <div id="screen-game" class="screen">
-            <div class="game-hud">
-                <button class="btn-icon" onclick="exitGame()">⏸ Salir</button>
-                <div class="score-display">Puntos: <span id="game-score">0</span></div>
-                <div id="powerup-status" class="hidden">⭐ INMUNE</div>
-            </div>
-            
-            <div class="canvas-container">
-                <canvas id="gameCanvas" width="400" height="400"></canvas>
-            </div>
-            
-            <div id="game-over-overlay" class="overlay hidden">
-                <div class="overlay-content">
-                    <h2>¡CAÍSTE!</h2>
-                    <p>Puntos: <span id="end-score">0</span></p>
-                    <button class="btn-main" onclick="startGame()">🔄 Reintentar</button>
-                    <button class="btn-secondary" style="margin-top:10px;" onclick="exitGame()">🏠 Menú</button>
-                </div>
-            </div>
-        </div>
-
-    </div>
-
-    <script src="game.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+  <script src="main.js"></script>
 </body>
 </html>
