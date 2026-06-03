@@ -12,6 +12,8 @@ let level = 1;
 let tick = 0;
 let speed = 12;
 
+let running = false;
+
 const levels = [
   { name: "Selva", bg: 0x0b3d0b },
   { name: "Ciudad", bg: 0x222222 },
@@ -21,6 +23,8 @@ const levels = [
 
 init();
 animate();
+
+/* ================= INIT ================= */
 
 function init() {
   scene = new THREE.Scene();
@@ -39,7 +43,12 @@ function init() {
   camera.position.set(0, 12, 18);
   camera.lookAt(0, 0, 0);
 
-  // 🌍 suelo
+  window.addEventListener("resize", onResize);
+
+  // luz
+  scene.add(new THREE.AmbientLight(0xffffff, 1));
+
+  // suelo
   let floor = new THREE.Mesh(
     new THREE.PlaneGeometry(60, 60),
     new THREE.MeshBasicMaterial({ color: 0x444444, side: THREE.DoubleSide })
@@ -47,11 +56,7 @@ function init() {
   floor.rotation.x = Math.PI / 2;
   scene.add(floor);
 
-  // 🔆 luz básica (para que no se vea plano)
-  const light = new THREE.AmbientLight(0xffffff, 1);
-  scene.add(light);
-
-  // 🐍 jugador
+  // snake
   for (let i = 0; i < 6; i++) {
     let seg = createSegment(0x00ff00);
     seg.position.x = -i;
@@ -59,7 +64,7 @@ function init() {
     scene.add(seg);
   }
 
-  // 👾 enemigo
+  // enemy
   for (let i = 0; i < 5; i++) {
     let seg = createSegment(0xff0000);
     seg.position.x = i + 10;
@@ -70,20 +75,61 @@ function init() {
   spawnFood();
   loadLevel(1);
 
-  window.addEventListener("keydown", control);
+  setupUI();
+  setupTouchControls();
 }
+
+/* ================= UI ================= */
+
+function setupUI() {
+  document.getElementById("startBtn").onclick = () => {
+    running = true;
+  };
+
+  document.getElementById("pauseBtn").onclick = () => {
+    running = !running;
+  };
+}
+
+/* ================= RESPONSIVE ================= */
+
+function onResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+/* ================= TOUCH CONTROLS ================= */
+
+let startX = 0;
+let startY = 0;
+
+function setupTouchControls() {
+  window.addEventListener("touchstart", (e) => {
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+  });
+
+  window.addEventListener("touchend", (e) => {
+    let dx = e.changedTouches[0].clientX - startX;
+    let dy = e.changedTouches[0].clientY - startY;
+
+    if (Math.abs(dx) > Math.abs(dy)) {
+      if (dx > 0 && direction.x === 0) direction.set(1, 0, 0);
+      else if (dx < 0 && direction.x === 0) direction.set(-1, 0, 0);
+    } else {
+      if (dy > 0 && direction.z === 0) direction.set(0, 0, 1);
+      else if (dy < 0 && direction.z === 0) direction.set(0, 0, -1);
+    }
+  });
+}
+
+/* ================= GAME OBJECTS ================= */
 
 function createSegment(color) {
   let geo = new THREE.SphereGeometry(0.5, 12, 12);
   let mat = new THREE.MeshStandardMaterial({ color });
   return new THREE.Mesh(geo, mat);
-}
-
-function control(e) {
-  if (e.key === "ArrowUp" && direction.z === 0) direction.set(0, 0, -1);
-  if (e.key === "ArrowDown" && direction.z === 0) direction.set(0, 0, 1);
-  if (e.key === "ArrowLeft" && direction.x === 0) direction.set(-1, 0, 0);
-  if (e.key === "ArrowRight" && direction.x === 0) direction.set(1, 0, 0);
 }
 
 function spawnFood() {
@@ -99,6 +145,8 @@ function spawnFood() {
 
   scene.add(food);
 }
+
+/* ================= MOVEMENT ================= */
 
 function moveSnake() {
   for (let i = snake.length - 1; i > 0; i--) {
@@ -127,10 +175,11 @@ function moveEnemy() {
   }
 }
 
+/* ================= GAME LOGIC ================= */
+
 function checkGame() {
   let head = snake[0];
 
-  // 🍎 comida
   if (head.position.distanceTo(food.position) < 1) {
     score += 10;
 
@@ -141,12 +190,9 @@ function checkGame() {
 
     spawnFood();
 
-    if (score % 50 === 0) {
-      levelUp();
-    }
+    if (score % 50 === 0) levelUp();
   }
 
-  // 💀 enemigo
   if (head.position.distanceTo(enemy[0].position) < 1.2) {
     alert("💀 Perdiste");
     location.reload();
@@ -154,6 +200,13 @@ function checkGame() {
 
   document.getElementById("ui").innerText =
     `Score: ${score} | Level: ${level}`;
+}
+
+/* ================= LEVELS ================= */
+
+function loadLevel(lvl) {
+  level = lvl;
+  scene.background = new THREE.Color(levels[lvl - 1].bg);
 }
 
 function levelUp() {
@@ -171,12 +224,15 @@ function levelUp() {
   alert("🌍 Nivel " + level + " - " + levels[level - 1].name);
 }
 
-function loadLevel(lvl) {
-  scene.background = new THREE.Color(levels[lvl - 1].bg);
-}
+/* ================= LOOP ================= */
 
 function animate() {
   requestAnimationFrame(animate);
+
+  if (!running) {
+    renderer.render(scene, camera);
+    return;
+  }
 
   tick++;
 
