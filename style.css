@@ -2,6 +2,7 @@ body {
   margin: 0;
   overflow: hidden;
   background: black;
+  touch-action: none;
 }
 
 #ui {
@@ -10,6 +11,30 @@ body {
   left: 10px;
   color: white;
   font-family: Arial;
-  font-size: 18px;
+  font-size: 16px;
   z-index: 10;
+}
+
+#menu {
+  position: absolute;
+  bottom: 20px;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  z-index: 20;
+}
+
+button {
+  padding: 12px 20px;
+  font-size: 16px;
+  border: none;
+  border-radius: 10px;
+  background: #00ff88;
+  color: black;
+  font-weight: bold;
+}
+
+button:active {
+  transform: scale(0.95);
 }
