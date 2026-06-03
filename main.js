@@ -8,10 +8,9 @@ let direction = new THREE.Vector3(1, 0, 0);
 
 let score = 0;
 let level = 1;
-let frame = 0;
 
-let gameSpeed = 10; // menor = más rápido
-let enemySpeed = 0.12;
+let tick = 0;
+let speed = 12;
 
 const levels = [
   { name: "Selva", bg: 0x0b3d0b },
@@ -48,20 +47,24 @@ function init() {
   floor.rotation.x = Math.PI / 2;
   scene.add(floor);
 
-  // 🐍 jugador (serpiente realista)
-  for (let i = 0; i < 8; i++) {
-    let segment = createSegment(0x00ff00);
-    segment.position.x = -i * 0.6;
-    snake.push(segment);
-    scene.add(segment);
+  // 🔆 luz básica (para que no se vea plano)
+  const light = new THREE.AmbientLight(0xffffff, 1);
+  scene.add(light);
+
+  // 🐍 jugador
+  for (let i = 0; i < 6; i++) {
+    let seg = createSegment(0x00ff00);
+    seg.position.x = -i;
+    snake.push(seg);
+    scene.add(seg);
   }
 
   // 👾 enemigo
-  for (let i = 0; i < 6; i++) {
-    let segment = createSegment(0xff0000);
-    segment.position.x = i + 6;
-    enemy.push(segment);
-    scene.add(segment);
+  for (let i = 0; i < 5; i++) {
+    let seg = createSegment(0xff0000);
+    seg.position.x = i + 10;
+    enemy.push(seg);
+    scene.add(seg);
   }
 
   spawnFood();
@@ -69,19 +72,20 @@ function init() {
 
   window.addEventListener("keydown", control);
 }
-function createSegment(color) {
-  let geometry = new THREE.SphereGeometry(0.4, 16, 16);
-  let material = new THREE.MeshStandardMaterial({ color });
-  let mesh = new THREE.Mesh(geometry, material);
 
-  return mesh;
+function createSegment(color) {
+  let geo = new THREE.SphereGeometry(0.5, 12, 12);
+  let mat = new THREE.MeshStandardMaterial({ color });
+  return new THREE.Mesh(geo, mat);
 }
+
 function control(e) {
-  if (e.key === "ArrowUp") direction.set(0, 0, -1);
-  if (e.key === "ArrowDown") direction.set(0, 0, 1);
-  if (e.key === "ArrowLeft") direction.set(-1, 0, 0);
-  if (e.key === "ArrowRight") direction.set(1, 0, 0);
+  if (e.key === "ArrowUp" && direction.z === 0) direction.set(0, 0, -1);
+  if (e.key === "ArrowDown" && direction.z === 0) direction.set(0, 0, 1);
+  if (e.key === "ArrowLeft" && direction.x === 0) direction.set(-1, 0, 0);
+  if (e.key === "ArrowRight" && direction.x === 0) direction.set(1, 0, 0);
 }
+
 function spawnFood() {
   if (food) scene.remove(food);
 
@@ -94,15 +98,17 @@ function spawnFood() {
   );
 
   scene.add(food);
-    }
+}
+
 function moveSnake() {
   for (let i = snake.length - 1; i > 0; i--) {
-    snake[i].position.lerp(snake[i - 1].position, 0.6);
+    snake[i].position.copy(snake[i - 1].position);
   }
 
-  snake[0].position.x += direction.x * 0.6;
-  snake[0].position.z += direction.z * 0.6;
-      }
+  snake[0].position.x += direction.x;
+  snake[0].position.z += direction.z;
+}
+
 function moveEnemy() {
   let head = enemy[0];
   let target = snake[0].position;
@@ -113,66 +119,68 @@ function moveEnemy() {
     target.z - head.position.z
   ).normalize();
 
-  head.position.x += dir.x * enemySpeed;
-  head.position.z += dir.z * enemySpeed;
+  head.position.x += dir.x * 0.3;
+  head.position.z += dir.z * 0.3;
 
   for (let i = enemy.length - 1; i > 0; i--) {
-    enemy[i].position.lerp(enemy[i - 1].position, 0.5);
+    enemy[i].position.copy(enemy[i - 1].position);
   }
-    }
+}
+
 function checkGame() {
   let head = snake[0];
 
-  // comida
+  // 🍎 comida
   if (head.position.distanceTo(food.position) < 1) {
     score += 10;
 
-    let tail = createSegment(0x00ff00);
-    tail.position.copy(snake[snake.length - 1].position);
-    snake.push(tail);
-    scene.add(tail);
+    let seg = createSegment(0x00ff00);
+    seg.position.copy(snake[snake.length - 1].position);
+    snake.push(seg);
+    scene.add(seg);
 
     spawnFood();
-    checkLevelUp();
+
+    if (score % 50 === 0) {
+      levelUp();
+    }
   }
 
-  // enemigo
-  if (head.position.distanceTo(enemy[0].position) < 1) {
-    alert("💀 Perdiste contra el enemigo");
+  // 💀 enemigo
+  if (head.position.distanceTo(enemy[0].position) < 1.2) {
+    alert("💀 Perdiste");
     location.reload();
   }
 
   document.getElementById("ui").innerText =
     `Score: ${score} | Level: ${level}`;
-       }
-function loadLevel(lvl) {
-  level = lvl;
-
-  scene.background = new THREE.Color(levels[lvl - 1].bg);
-
-  enemySpeed += 0.02;
-  gameSpeed = Math.max(5, gameSpeed - 1);
-    }
-function checkLevelUp() {
-  if (score >= level * 50) {
-    level++;
-
-    if (level > levels.length) {
-      alert("🏆 Ganaste todos los mundos");
-      location.reload();
-      return;
-    }
-
-    alert("🌍 Nivel " + level + " - " + levels[level - 1].name);
-    loadLevel(level);
-  }
 }
+
+function levelUp() {
+  level++;
+
+  if (level > levels.length) {
+    alert("🏆 Ganaste todos los mundos");
+    location.reload();
+    return;
+  }
+
+  scene.background = new THREE.Color(levels[level - 1].bg);
+  speed = Math.max(6, speed - 2);
+
+  alert("🌍 Nivel " + level + " - " + levels[level - 1].name);
+}
+
+function loadLevel(lvl) {
+  scene.background = new THREE.Color(levels[lvl - 1].bg);
+}
+
 function animate() {
   requestAnimationFrame(animate);
 
-  frame++;
+  tick++;
 
-  if (frame % gameSpeed === 0) {
+  if (tick % speed === 0) {
     moveSnake();
     moveEnemy();
     checkGame();
