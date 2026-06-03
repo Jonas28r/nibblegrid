@@ -38,48 +38,38 @@ function init() {
 
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.shadowMap.enabled = true;
   document.body.appendChild(renderer.domElement);
 
   window.addEventListener("resize", onResize);
 
   camera.position.set(0, 12, 18);
 
-  /* 🌟 ILUMINACIÓN PLAY STORE STYLE */
-  const ambient = new THREE.AmbientLight(0xffffff, 0.35);
+  const ambient = new THREE.AmbientLight(0xffffff, 0.4);
   scene.add(ambient);
 
   const sun = new THREE.DirectionalLight(0xffffff, 1.2);
   sun.position.set(10, 20, 10);
-  sun.castShadow = true;
   scene.add(sun);
 
-  /* 🌍 SUELO CON PROFUNDIDAD */
   let floor = new THREE.Mesh(
     new THREE.PlaneGeometry(100, 100),
-    new THREE.MeshStandardMaterial({
-      color: 0x333333,
-      roughness: 0.9,
-      metalness: 0.1
-    })
+    new THREE.MeshStandardMaterial({ color: 0x333333 })
   );
-
   floor.rotation.x = Math.PI / 2;
-  floor.receiveShadow = true;
   scene.add(floor);
 
-  /* 🐍 PLAYER SNAKE */
-  for (let i = 0; i < 7; i++) {
+  // 🐍 SERPIENTE ORGÁNICA
+  for (let i = 0; i < 10; i++) {
     let seg = createSegment(0x00ff55);
-    seg.position.x = -i;
+    seg.position.x = -i * 0.8;
     snake.push(seg);
     scene.add(seg);
   }
 
-  /* 👾 ENEMY */
-  for (let i = 0; i < 5; i++) {
+  // 👾 enemigo
+  for (let i = 0; i < 6; i++) {
     let seg = createSegment(0xff3355);
-    seg.position.x = i + 10;
+    seg.position.x = i + 12;
     enemy.push(seg);
     scene.add(seg);
   }
@@ -91,23 +81,20 @@ function init() {
   setupUI();
 }
 
-/* ================= SNAKE LOOK (MEJORADO) ================= */
+/* ================= SEGMENTO (MEJOR LOOK) ================= */
 
 function createSegment(color) {
-  let geo = new THREE.SphereGeometry(0.55, 18, 18);
+  let geo = new THREE.SphereGeometry(0.6, 18, 18);
   let mat = new THREE.MeshStandardMaterial({
     color,
-    roughness: 0.4,
-    metalness: 0.2
+    roughness: 0.35,
+    metalness: 0.25
   });
 
-  let mesh = new THREE.Mesh(geo, mat);
-  mesh.castShadow = true;
-
-  return mesh;
+  return new THREE.Mesh(geo, mat);
 }
 
-/* ================= CONTROLS ================= */
+/* ================= CONTROLES ================= */
 
 function setupControls() {
   window.addEventListener("keydown", (e) => {
@@ -117,8 +104,6 @@ function setupControls() {
     if (e.key === "ArrowRight" && direction.x === 0) direction.set(1, 0, 0);
   });
 }
-
-/* ================= UI ================= */
 
 function setupUI() {
   document.getElementById("startBtn").onclick = () => running = true;
@@ -131,7 +116,7 @@ function spawnFood() {
   if (food) scene.remove(food);
 
   food = createSegment(0xffff00);
-  food.scale.set(0.9, 0.9, 0.9);
+  food.scale.set(0.7, 0.7, 0.7);
 
   food.position.set(
     Math.floor(Math.random() * 30 - 15),
@@ -142,7 +127,7 @@ function spawnFood() {
   scene.add(food);
 }
 
-/* ================= OBSTACLES ================= */
+/* ================= OBSTÁCULOS ================= */
 
 function spawnObstacles(type) {
   obstacles.forEach(o => scene.remove(o));
@@ -155,17 +140,11 @@ function spawnObstacles(type) {
   if (type === "ruins") color = 0x6e2c00;
   if (type === "rocks") color = 0x7f8c8d;
 
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 18; i++) {
     let obs = new THREE.Mesh(
       new THREE.BoxGeometry(1.2, 1.2, 1.2),
-      new THREE.MeshStandardMaterial({
-        color,
-        roughness: 0.8,
-        metalness: 0.1
-      })
+      new THREE.MeshStandardMaterial({ color })
     );
-
-    obs.castShadow = true;
 
     obs.position.set(
       Math.floor(Math.random() * 40 - 20),
@@ -178,16 +157,23 @@ function spawnObstacles(type) {
   }
 }
 
-/* ================= MOVEMENT ================= */
+/* ================= 🐍 MOVIMIENTO ORGÁNICO ================= */
 
 function moveSnake() {
-  for (let i = snake.length - 1; i > 0; i--) {
-    snake[i].position.copy(snake[i - 1].position);
-  }
-
+  // cabeza directa
   snake[0].position.x += direction.x;
   snake[0].position.z += direction.z;
+
+  // cuerpo suave (ESTO ES LO IMPORTANTE)
+  for (let i = 1; i < snake.length; i++) {
+    let prev = snake[i - 1].position;
+    let curr = snake[i].position;
+
+    curr.lerp(prev, 0.35); // 🔥 movimiento orgánico
+  }
 }
+
+/* ================= ENEMIGO ================= */
 
 function moveEnemy() {
   let head = enemy[0];
@@ -199,59 +185,26 @@ function moveEnemy() {
     target.z - head.position.z
   ).normalize();
 
-  head.position.x += dir.x * 0.22;
-  head.position.z += dir.z * 0.22;
+  head.position.x += dir.x * 0.2;
+  head.position.z += dir.z * 0.2;
 
-  for (let i = enemy.length - 1; i > 0; i--) {
-    enemy[i].position.copy(enemy[i - 1].position);
+  for (let i = 1; i < enemy.length; i++) {
+    enemy[i].position.lerp(enemy[i - 1].position, 0.3);
   }
 }
 
-/* ================= CAMERA (AAA FEEL) ================= */
+/* ================= CÁMARA VIVA ================= */
 
 function updateCamera() {
   let head = snake[0];
 
-  camera.position.x += (head.position.x - camera.position.x) * 0.07;
-  camera.position.z += (head.position.z + 14 - camera.position.z) * 0.07;
+  camera.position.x += (head.position.x - camera.position.x) * 0.08;
+  camera.position.z += (head.position.z + 14 - camera.position.z) * 0.08;
 
   camera.lookAt(head.position);
 }
 
-/* ================= EFFECT ================= */
-
-function eatEffect(pos) {
-  for (let i = 0; i < 6; i++) {
-    let p = createSegment(0xffff00);
-    p.position.copy(pos);
-    p.scale.set(0.3, 0.3, 0.3);
-    scene.add(p);
-
-    let angle = Math.random() * Math.PI * 2;
-    let vx = Math.cos(angle) * 0.2;
-    let vz = Math.sin(angle) * 0.2;
-
-    let life = 0;
-
-    function animateP() {
-      if (life > 18) {
-        scene.remove(p);
-        return;
-      }
-
-      p.position.x += vx;
-      p.position.z += vz;
-      p.position.y += 0.03;
-
-      life++;
-      requestAnimationFrame(animateP);
-    }
-
-    animateP();
-  }
-}
-
-/* ================= GAME LOGIC ================= */
+/* ================= GAME ================= */
 
 function checkGame() {
   let head = snake[0];
@@ -259,21 +212,12 @@ function checkGame() {
   if (head.position.distanceTo(food.position) < 1) {
     score += 10;
 
-    eatEffect(food.position);
-
     let seg = createSegment(0x00ff55);
     seg.position.copy(snake[snake.length - 1].position);
     snake.push(seg);
     scene.add(seg);
 
     spawnFood();
-
-    if (score % 50 === 0) levelUp();
-  }
-
-  if (head.position.distanceTo(enemy[0].position) < 1.2) {
-    alert("💀 Perdiste");
-    location.reload();
   }
 
   for (let o of obstacles) {
@@ -291,23 +235,8 @@ function checkGame() {
 
 function loadLevel(lvl) {
   level = lvl;
-
   scene.background = new THREE.Color(levels[lvl - 1].bg);
-
   spawnObstacles(levels[lvl - 1].obstacle);
-}
-
-function levelUp() {
-  level++;
-
-  if (level > levels.length) {
-    alert("🏆 Ganaste todo");
-    location.reload();
-    return;
-  }
-
-  loadLevel(level);
-  speed = Math.max(6, speed - 1);
 }
 
 /* ================= LOOP ================= */
